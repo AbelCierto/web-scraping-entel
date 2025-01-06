@@ -151,3 +151,4 @@ async def main():
     print(f"Datos guardados en 'productos_entel.csv'")
 
 asyncio.run(main())
+
