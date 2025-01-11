@@ -1,6 +1,7 @@
 import asyncio
 import csv
 from playwright.async_api import async_playwright
+import datetime
 
 async def extract_links_from_page(page):
     """Extrae los enlaces de los artículos en la página actual."""
@@ -13,10 +14,18 @@ async def extract_links_from_page(page):
 async def get_max_pages_and_links():
     """Extrae todos los enlaces de la paginación."""
     base_url = "https://miportal.entel.pe/personas/catalogo/postpago/renovacion"
+    headers = {
+        "referer": "https://miportal.entel.pe/personas/producto/equipos/prod640038?poId=PO_BSC_EQP_29347&modalidad=Renovacion&planId=PO_POS_OO_24428&oferta=regular&cuota=0&flow=equipos",
+        "sec-ch-ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    }
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)
+        browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
+        await page.set_extra_http_headers(headers)
         await page.goto(base_url, timeout=100000)
 
         await page.wait_for_selector(
@@ -59,6 +68,14 @@ async def get_max_pages_and_links():
 
 async def extract_product_data(page, url):
     """Extrae datos de un producto desde su página."""
+    headers = {
+        "referer": "https://miportal.entel.pe/personas/producto/equipos/prod640038?poId=PO_BSC_EQP_29347&modalidad=Renovacion&planId=PO_POS_OO_24428&oferta=regular&cuota=0&flow=equipos",
+        "sec-ch-ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    }
+    await page.set_extra_http_headers(headers)
     await page.goto(url, timeout=100000)
     
     no_stock = await page.query_selector('.noStock-container')
@@ -118,7 +135,7 @@ async def extract_product_data(page, url):
 async def worker(worker_id, urls, output):
     """Worker que procesa una lista de URLs."""
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)
+        browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
         
         while urls:
@@ -141,14 +158,17 @@ async def main():
     workers = 4
     tasks = [worker(i, all_links, output) for i in range(workers)]
     await asyncio.gather(*tasks)
+    now = datetime.datetime.now()
+    timestamp = now.strftime("%Y%m%d_%H%M%S")
+    filename = f'productos_entel_{timestamp}.csv'
 
-    with open('productos_entel.csv', 'w', newline='', encoding='utf-8') as csvfile:
+    with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
         fieldnames = ["link", "marca", "modelo", "precio_renovacion", "precio_liberado", "caracteristicas"]
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter=';')
         writer.writeheader()
         writer.writerows(output)
 
-    print(f"Datos guardados en 'productos_entel.csv'")
+    print(f"Datos guardados en '{filename}'")
 
 asyncio.run(main())
 
